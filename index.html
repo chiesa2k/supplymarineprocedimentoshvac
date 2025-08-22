@@ -10,41 +10,51 @@
             margin: 0;
             padding: 0;
             height: 100%;
-            background-color: #525659; /* Fundo cinza para o corpo */
+            background-color: #525659;
             display: flex;
             flex-direction: column;
             align-items: center;
+            font-family: sans-serif;
         }
         #viewer-container {
             flex-grow: 1;
-            overflow: auto; /* Barra de rolagem apenas para a área do PDF */
+            overflow: auto;
             width: 100%;
-            text-align: center; /* Centraliza o canvas */
-            padding-top: 10px;
+            text-align: center;
+            padding: 20px 0;
+            box-sizing: border-box;
         }
         #pdf-canvas {
-            border: 1px solid black;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            /* Impede que o menu de contexto padrão apareça ao clicar com o botão direito */
+            pointer-events: none; 
         }
-        #navigation-controls {
+        #controls {
             padding: 10px;
-            background-color: #333;
+            background-color: #2c3e50;
             width: 100%;
             text-align: center;
             box-sizing: border-box;
             position: sticky;
             bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
         }
-        #navigation-controls button {
-            padding: 8px 16px;
-            margin: 0 10px;
-            font-size: 16px;
+        #controls button {
+            width: 40px;
+            height: 40px;
+            font-size: 24px;
+            font-weight: bold;
             cursor: pointer;
+            border-radius: 50%;
+            border: none;
         }
         #page-info {
             color: white;
-            font-family: sans-serif;
             font-size: 16px;
+            min-width: 120px;
         }
     </style>
 </head>
@@ -54,34 +64,43 @@
         <canvas id="pdf-canvas"></canvas>
     </div>
 
-    <div id="navigation-controls">
-        <button id="prev-page">Anterior</button>
-        <span id="page-info">Página <span id="page-num"></span> de <span id="page-count"></span></span>
-        <button id="next-page">Próximo</button>
+    <div id="controls">
+        <button id="prev-page" title="Página Anterior">&lt;</button>
+        <span id="page-info">Pág. <span id="page-num">0</span> / <span id="page-count">0</span></span>
+        <button id="next-page" title="Próxima Página">&gt;</button>
+        
+        <div style="width: 2px; height: 30px; background-color: #555; margin: 0 10px;"></div>
+
+        <button id="zoom-out" title="Diminuir Zoom">-</button>
+        <button id="zoom-in" title="Aumentar Zoom">+</button>
     </div>
 
     <script>
         const url = 'https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicosHVACR_vs03.pdf';
+        
         const { pdfjsLib } = window;
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
 
         let pdfDoc = null,
             pageNum = 1,
-            pageIsRendering = false,
-            pageNumIsPending = null;
+            currentScale = 1.0; // Escala inicial, será ajustada
 
-        const scale = 1.5, // Você pode ajustar o zoom aqui
-              canvas = document.getElementById('pdf-canvas'),
+        const canvas = document.getElementById('pdf-canvas'),
               ctx = canvas.getContext('2d'),
-              pageInfo = document.getElementById('page-info'),
+              viewerContainer = document.getElementById('viewer-container'),
               pageNumSpan = document.getElementById('page-num'),
               pageCountSpan = document.getElementById('page-count');
 
         const renderPage = num => {
-            pageIsRendering = true;
-
             pdfDoc.getPage(num).then(page => {
-                const viewport = page.getViewport({ scale });
+                // Se for a primeira renderização, calcula a escala para ajustar à largura
+                if (currentScale === 1.0) {
+                    const initialViewport = page.getViewport({ scale: 1 });
+                    // Deixa 20px de margem nas laterais
+                    currentScale = (viewerContainer.clientWidth - 40) / initialViewport.width;
+                }
+
+                const viewport = page.getViewport({ scale: currentScale });
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
 
@@ -89,49 +108,47 @@
                     canvasContext: ctx,
                     viewport
                 };
-                page.render(renderContext).promise.then(() => {
-                    pageIsRendering = false;
-                    if (pageNumIsPending !== null) {
-                        renderPage(pageNumIsPending);
-                        pageNumIsPending = null;
-                    }
-                });
-
+                page.render(renderContext);
                 pageNumSpan.textContent = num;
             });
         };
-
-        const queueRenderPage = num => {
-            if (pageIsRendering) {
-                pageNumIsPending = num;
-            } else {
-                renderPage(num);
-            }
-        };
-
+        
         const onPrevPage = () => {
             if (pageNum <= 1) return;
             pageNum--;
-            queueRenderPage(pageNum);
+            renderPage(pageNum);
         };
 
         const onNextPage = () => {
             if (pageNum >= pdfDoc.numPages) return;
             pageNum++;
-            queueRenderPage(pageNum);
+            renderPage(pageNum);
+        };
+
+        const onZoomIn = () => {
+            currentScale += 0.2;
+            renderPage(pageNum);
+        };
+        
+        const onZoomOut = () => {
+            if (currentScale <= 0.4) return; // Limite mínimo de zoom
+            currentScale -= 0.2;
+            renderPage(pageNum);
         };
 
         document.getElementById('prev-page').addEventListener('click', onPrevPage);
         document.getElementById('next-page').addEventListener('click', onNextPage);
+        document.getElementById('zoom-in').addEventListener('click', onZoomIn);
+        document.getElementById('zoom-out').addEventListener('click', onZoomOut);
 
+        // Carrega o documento
         pdfjsLib.getDocument(url).promise.then(doc => {
             pdfDoc = doc;
             pageCountSpan.textContent = pdfDoc.numPages;
             renderPage(pageNum);
         }).catch(err => {
             console.error('Erro ao carregar o PDF:', err);
-            const viewerContainer = document.getElementById('viewer-container');
-            viewerContainer.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar o documento. Verifique se o link do PDF está correto e acessível.</p>';
+            viewerContainer.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar o documento.</p>';
         });
     </script>
 </body>
