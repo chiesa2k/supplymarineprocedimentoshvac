@@ -3,26 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Procedimentos Técnicos da Supply Marine</title>
+    <title>Procedimentos Técnicos - Supply Marine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             height: 100%;
-            overflow: hidden;
+            background-color: #525659; /* Fundo cinza para o corpo */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        iframe {
-            border: none;
+        #viewer-container {
+            flex-grow: 1;
+            overflow: auto; /* Barra de rolagem apenas para a área do PDF */
             width: 100%;
-            height: 100%;
+            text-align: center; /* Centraliza o canvas */
+            padding-top: 10px;
+        }
+        #pdf-canvas {
+            border: 1px solid black;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        #navigation-controls {
+            padding: 10px;
+            background-color: #333;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+            position: sticky;
+            bottom: 0;
+        }
+        #navigation-controls button {
+            padding: 8px 16px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #page-info {
+            color: white;
+            font-family: sans-serif;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
 
-    <iframe 
-        src="https://mozilla.github.io/pdf.js/web/viewer.html?file=https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicosHVACR_vs03.pdf#toolbar=0&navpanes=0&zoom=auto">
-    </iframe>
+    <div id="viewer-container">
+        <canvas id="pdf-canvas"></canvas>
+    </div>
 
+    <div id="navigation-controls">
+        <button id="prev-page">Anterior</button>
+        <span id="page-info">Página <span id="page-num"></span> de <span id="page-count"></span></span>
+        <button id="next-page">Próximo</button>
+    </div>
+
+    <script>
+        const url = 'https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicosHVACR_vs03.pdf';
+        const { pdfjsLib } = window;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+
+        let pdfDoc = null,
+            pageNum = 1,
+            pageIsRendering = false,
+            pageNumIsPending = null;
+
+        const scale = 1.5, // Você pode ajustar o zoom aqui
+              canvas = document.getElementById('pdf-canvas'),
+              ctx = canvas.getContext('2d'),
+              pageInfo = document.getElementById('page-info'),
+              pageNumSpan = document.getElementById('page-num'),
+              pageCountSpan = document.getElementById('page-count');
+
+        const renderPage = num => {
+            pageIsRendering = true;
+
+            pdfDoc.getPage(num).then(page => {
+                const viewport = page.getViewport({ scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport
+                };
+                page.render(renderContext).promise.then(() => {
+                    pageIsRendering = false;
+                    if (pageNumIsPending !== null) {
+                        renderPage(pageNumIsPending);
+                        pageNumIsPending = null;
+                    }
+                });
+
+                pageNumSpan.textContent = num;
+            });
+        };
+
+        const queueRenderPage = num => {
+            if (pageIsRendering) {
+                pageNumIsPending = num;
+            } else {
+                renderPage(num);
+            }
+        };
+
+        const onPrevPage = () => {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        };
+
+        const onNextPage = () => {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        };
+
+        document.getElementById('prev-page').addEventListener('click', onPrevPage);
+        document.getElementById('next-page').addEventListener('click', onNextPage);
+
+        pdfjsLib.getDocument(url).promise.then(doc => {
+            pdfDoc = doc;
+            pageCountSpan.textContent = pdfDoc.numPages;
+            renderPage(pageNum);
+        }).catch(err => {
+            console.error('Erro ao carregar o PDF:', err);
+            const viewerContainer = document.getElementById('viewer-container');
+            viewerContainer.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar o documento. Verifique se o link do PDF está correto e acessível.</p>';
+        });
+    </script>
 </body>
 </html>
