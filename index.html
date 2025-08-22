@@ -57,7 +57,7 @@
         // --- CONFIGURAÇÕES DE SEGURANÇA ---
         const CORRECT_PASSWORD = 'supply321';
         const WATERMARK_TEXT = 'USO INTERNO - SUPPLY MARINE';
-        const PDF_URL = 'https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicoHVACR_vs03.pdf';
+        const PDF_URL = 'https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicosHVACR_vs03.pdf';
 
         // --- LÓGICA DE SENHA ---
         function checkPassword() {
@@ -152,8 +152,11 @@
 
             pdfjsLib.getDocument(PDF_URL).promise.then(doc => {
                 pdfDoc = doc;
-                pageCountSpan.textContent = pdfDoc.numPages;
+                pageCountSpan.textContent = doc.numPages;
                 renderPage(pageNum);
+            }).catch(err => {
+                console.error('PDF loading error:', err);
+                viewerContainer.innerHTML = '<p style="color:white; text-align:center;"><b>Erro:</b> Não foi possível carregar o documento. Verifique se o nome do arquivo no repositório está correto.</p>';
             });
         }
         
