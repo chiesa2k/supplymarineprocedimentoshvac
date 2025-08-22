@@ -32,13 +32,11 @@
         #page-info {
             color: white; font-size: 16px; min-width: 120px;
         }
-        /* Oculta o conteúdo até a senha ser inserida */
-        .hidden-content { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="content" class="hidden-content" style="display: contents;">
+    <div id="content" style="display: contents;">
         <div id="viewer-container">
             <canvas id="pdf-canvas"></canvas>
         </div>
@@ -54,23 +52,14 @@
     </div>
 
     <script>
-        // --- CONFIGURAÇÕES DE SEGURANÇA ---
-        const CORRECT_PASSWORD = 'supply321';
+        // --- CONFIGURAÇÕES DO DOCUMENTO ---
         const WATERMARK_TEXT = 'USO INTERNO - SUPPLY MARINE';
         const PDF_URL = 'https://raw.githubusercontent.com/chiesa2k/supplymarineprocedimentoshvac/main/SUPPLYMARINE_ProcedimentosTecnicosHVACR_vs03.pdf';
 
-        // --- LÓGICA DE SENHA ---
-        function checkPassword() {
-            const password = prompt("Por favor, insira a senha para acessar o documento:", "");
-            if (password === CORRECT_PASSWORD) {
-                document.getElementById('content').style.display = 'contents';
-                initializePDFViewer();
-            } else if (password !== null) {
-                alert("Senha incorreta.");
-                checkPassword();
-            } else {
-                 document.body.innerHTML = '<h1 style="color:white; text-align:center; margin-top: 50px;">Acesso cancelado.</h1>';
-            }
+        // --- LÓGICA DE AVISO (MODIFICADO) ---
+        function showUsageWarning() {
+            alert("Documento apenas para uso interno da Supply Marine, proibido qualquer tipo de compartilhamento com pessoas não autorizadas.");
+            initializePDFViewer();
         }
 
         // --- INICIALIZAÇÃO DO VISUALIZADOR DE PDF ---
@@ -160,8 +149,8 @@
             });
         }
         
-        // Inicia o processo pedindo a senha
-        checkPassword();
+        // Inicia o processo mostrando o aviso
+        showUsageWarning();
     </script>
 </body>
 </html>
